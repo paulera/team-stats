@@ -38,9 +38,11 @@ def get_channel_id(client, channel_name):
             
             cursor = result['response_metadata']['next_cursor']
         
+        print(f"Error: Channel '{channel_name}' not found or you don't have access to it", file=sys.stderr)
         return None
     
     except SlackApiError as e:
+        print(f"Error fetching channels: {e.response['error']}", file=sys.stderr)
         return None
 
 
@@ -64,6 +66,7 @@ def get_user_display(client, user_id, is_bot, user_cache):
         user_cache[user_id] = display
         return display
     except SlackApiError as e:
+        print(f"Warning: Could not retrieve info for {user_id}: {e.response.get('error', 'unknown')}", file=sys.stderr)
         # Fallback to just the ID
         display = f"{user_id}:{user_id}"
         user_cache[user_id] = display
@@ -153,6 +156,7 @@ def count_messages(client, channel_id, channel_name, count_replies, count_messag
             return [(total_count, channel_name)]
     
     except SlackApiError as e:
+        print(f"Error fetching messages: {e.response['error']}", file=sys.stderr)
         return None
 
 
@@ -165,6 +169,7 @@ def main():
     parser.add_argument('-u', '--user', action='store_true', help='Show counts per user')
     parser.add_argument('-df', '--date-from', dest='date_from', help='Start date (YYYY-MM-DD)')
     parser.add_argument('-dt', '--date-to', dest='date_to', help='End date (YYYY-MM-DD)')
+    parser.add_argument('-t', '--top', type=int, dest='top', help='Show only top N results (highest to lowest)')
     
     args = parser.parse_args()
     
@@ -179,12 +184,14 @@ def main():
             # Set to end of day
             date_to = datetime.strptime(args.date_to, '%Y-%m-%d')
             date_to = date_to.replace(hour=23, minute=59, second=59)
-    except ValueError:
+    except ValueError as e:
+        print(f"Error: Invalid date format. Use YYYY-MM-DD", file=sys.stderr)
         sys.exit(1)
     
     # Get Slack token from environment
     slack_token = os.environ.get('SLACK_TOKEN')
     if not slack_token:
+        print("Error: SLACK_TOKEN environment variable not set", file=sys.stderr)
         sys.exit(1)
     
     # Initialize Slack client
@@ -209,10 +216,18 @@ def main():
     )
     
     if results is None:
+        print("Error: Failed to count messages", file=sys.stderr)
         sys.exit(1)
     
+    # Sort results by count (ascending by default)
+    sorted_results = sorted(results, key=lambda x: x[0])
+    
+    # Apply top filter if specified (reverse order for top results)
+    if args.top:
+        sorted_results = sorted_results[-args.top:][::-1]
+    
     # Display results
-    for count, label in results:
+    for count, label in sorted_results:
         print(f"{count} {label}")
 
 

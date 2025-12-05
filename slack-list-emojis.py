@@ -39,9 +39,11 @@ def get_channel_id(client, channel_name):
             
             cursor = result['response_metadata']['next_cursor']
         
+        print(f"Error: Channel '{channel_name}' not found or you don't have access to it", file=sys.stderr)
         return None
     
     except SlackApiError as e:
+        print(f"Error fetching channels: {e.response['error']}", file=sys.stderr)
         return None
 
 
@@ -86,6 +88,7 @@ def get_emoji_reactions(client, channel_id, date_from=None, date_to=None):
         return emoji_counter
     
     except SlackApiError as e:
+        print(f"Error fetching messages: {e.response['error']}", file=sys.stderr)
         return None
 
 
@@ -95,6 +98,7 @@ def main():
     parser.add_argument('channel_name', help='Slack channel name')
     parser.add_argument('-df', '--date-from', dest='date_from', help='Start date (YYYY-MM-DD)')
     parser.add_argument('-dt', '--date-to', dest='date_to', help='End date (YYYY-MM-DD)')
+    parser.add_argument('-t', '--top', type=int, dest='top', help='Show only top N results (highest to lowest)')
     
     args = parser.parse_args()
     
@@ -109,12 +113,14 @@ def main():
             # Set to end of day
             date_to = datetime.strptime(args.date_to, '%Y-%m-%d')
             date_to = date_to.replace(hour=23, minute=59, second=59)
-    except ValueError:
+    except ValueError as e:
+        print(f"Error: Invalid date format. Use YYYY-MM-DD", file=sys.stderr)
         sys.exit(1)
     
     # Get Slack token from environment
     slack_token = os.environ.get('SLACK_TOKEN')
     if not slack_token:
+        print("Error: SLACK_TOKEN environment variable not set", file=sys.stderr)
         sys.exit(1)
     
     # Initialize Slack client
@@ -130,11 +136,18 @@ def main():
     emoji_counter = get_emoji_reactions(client, channel_id, date_from, date_to)
     
     if emoji_counter is None:
+        print("Error: Failed to retrieve emoji reactions", file=sys.stderr)
         sys.exit(1)
     
     # Display results
-    for emoji, count in sorted(emoji_counter.items(), key=lambda x: x[1]):
-        print(f":{emoji}: - {count}")
+    sorted_results = sorted(emoji_counter.items(), key=lambda x: x[1])
+    
+    # Apply top filter if specified (reverse order for top results)
+    if args.top:
+        sorted_results = sorted_results[-args.top:][::-1]
+    
+    for emoji, count in sorted_results:
+        print(f"{count} :{emoji}:")
 
 
 if __name__ == "__main__":
