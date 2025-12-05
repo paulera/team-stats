@@ -60,8 +60,17 @@ def get_user_display(client, user_id, is_bot, user_cache):
         else:
             # For users, get email
             result = client.users_info(user=user_id)
-            email = result['user']['profile'].get('email', user_id)
-            display = f"{email}:{user_id}"
+            user = result['user']
+            
+            # Check if it's actually a bot/app (has is_bot or is_app_user flag)
+            if user.get('is_bot') or user.get('is_app_user'):
+                # It's a bot/app, use the real_name or name
+                name = user.get('real_name') or user.get('name', user_id)
+                display = f"{name}:{user_id}"
+            else:
+                # It's a real user, use email
+                email = user['profile'].get('email', user_id)
+                display = f"{email}:{user_id}"
         
         user_cache[user_id] = display
         return display
