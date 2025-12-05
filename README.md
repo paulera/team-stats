@@ -2,6 +2,8 @@
 
 Simple Python scripts for gathering team statistics from Slack.
 
+Built using Claude Sonnet 4.5.
+
 ## Installation
 
 1. Install dependencies:
