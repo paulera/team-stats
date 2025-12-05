@@ -75,9 +75,19 @@ def get_user_display(client, user_id, is_bot, user_cache):
         user_cache[user_id] = display
         return display
     except SlackApiError as e:
-        print(f"Warning: Could not retrieve info for {user_id}: {e.response.get('error', 'unknown')}", file=sys.stderr)
-        # Fallback to just the ID
-        display = f"{user_id}:{user_id}"
+        error_type = e.response.get('error', 'unknown')
+        
+        # Handle deleted/not found bots
+        if error_type == 'bot_not_found':
+            print(f"Warning: Bot {user_id} not found (likely deleted)", file=sys.stderr)
+            display = f"Unknown (bot):{user_id}"
+        elif error_type == 'user_not_found':
+            print(f"Warning: User {user_id} not found", file=sys.stderr)
+            display = f"Unknown (user):{user_id}"
+        else:
+            print(f"Warning: Could not retrieve info for {user_id}: {error_type}", file=sys.stderr)
+            display = f"{user_id}:{user_id}"
+        
         user_cache[user_id] = display
         return display
 
